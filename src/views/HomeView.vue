@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref,onMounted } from 'vue';
+import { ref,onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button';
 import {catApi} from '@/lib/api';
 import type { CatListItem } from '@/types';
@@ -11,6 +12,38 @@ import CatCard from '@/components/CatCard.vue';
 
 //数据
 const catList=ref<CatListItem[]>([]);
+const selectedCategory = ref('全部')
+
+const categories = ['全部','三花','橘猫','奶牛','纯色','长毛','短毛']
+
+const route = useRoute()
+
+const displayedCats = computed(()=>{
+  const cats = catList.value || []
+  // 先按分类过滤
+  let arr = cats
+  if(selectedCategory.value !== '全部'){
+    arr = arr.filter(c => {
+      if(!c.color) return false
+      const color = String(c.color || '')
+      if (selectedCategory.value === '纯色') {
+        return color.includes('纯') || color.includes('纯色')
+      }
+      return color.includes(selectedCategory.value)
+    })
+  }
+  // 再按顶部搜索 query 过滤（模糊匹配 名字/花色/校区）
+  const q = String(route.query.search || '').trim().toLowerCase()
+  if(q){
+    arr = arr.filter(c => {
+      const name = String(c.name||'').toLowerCase()
+      const color = String(c.color||'').toLowerCase()
+      const campus = String(c.campus||'').toLowerCase()
+      return name.includes(q) || color.includes(q) || campus.includes(q)
+    })
+  }
+  return arr
+})
 const loading=ref(true);
 
 //获取数据
@@ -41,7 +74,7 @@ onMounted(()=>{
 <template>
   <div class="flex flex-col  w-full min-h-full">
     <div class="grid grid-cols-1 lg:grid-cols-[3.7fr_1fr] gap-6 items-start">
-      <section class="flex flex-col gap-6 border-b rounded-xl shadow-sm">
+      <section class="flex flex-col gap-6  rounded-xl ">
         <StatsBanner />
         <ShortcutGrid />
 
@@ -49,18 +82,17 @@ onMounted(()=>{
         
         <div class="flex gap-3 ">
           <!--分类筛选-->
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">全部</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">三花</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">橘猫</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">奶牛</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">纯色</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">长毛</Button>
-          <Button class="px-3 py-1 border-2 border-gray-200 rounded-full  bg-white text-black text-sm hover:bg-primary focus:bg-primary focus:border-primary">短毛</Button>
+          <template v-for="cat in categories" :key="cat">
+            <Button @click="selectedCategory = cat"
+              :class="['px-3 py-1 border-2 rounded-full text-sm', selectedCategory===cat ? 'bg-primary text-black border-primary' : 'bg-white text-black border-gray-200 hover:bg-primary']">
+              {{ cat }}
+            </Button>
+          </template>
         </div>
         <!--列网表格-->
         <div v-if="loading" class="text-center py-10 text-gray-500">加载中...🐱</div>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          <CatCard v-for="cat in catList" :key="cat.id" :cat="cat" />
+          <CatCard v-for="cat in displayedCats" :key="cat.id" :cat="cat" />
         </div>
       </section>
     

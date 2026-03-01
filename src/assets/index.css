@@ -74,3 +74,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 1. 强制定位 Toaster 容器 */
+[data-sonner-toaster] {
+    position: fixed !important;
+    top: 24px !important;        /* 距离顶部 24px */
+    bottom: auto !important;     /* 必须把 bottom 重置为 auto */
+    left: 50% !important;        /* 水平居中起点 */
+    transform: translateX(-50%) !important; /* 修正居中偏移 */
+    z-index: 1000 !important;    /* 保证在最上层 */
+}
+
+/* 2. 强制内部 Toast 条目布局 */
+[data-sonner-toaster] .toast {
+    margin-bottom: 0 !important; /* 防止底部留白 */
+    margin-top: 8px !important;  /* 多个弹窗时的间距 */
+}

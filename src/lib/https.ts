@@ -3,7 +3,7 @@ import type { AxiosInstance,AxiosRequestConfig,AxiosResponse } from "axios";
 import type{ ApiResponse } from "@/types";
 
 const service: AxiosInstance = axios.create({
-  baseURL: "https://m1.apifoxmock.com/m1/7818383-7566189-default",
+  baseURL: "http://10.2.9.114:20202",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -12,6 +12,10 @@ const service: AxiosInstance = axios.create({
 //请求拦截器
 service.interceptors.request.use(
   (config) => {
+    const token=localStorage.getItem('token')
+    if(token){
+        config.headers['Authorization']=`Bearer ${token}`
+    }
     return config;
   },
   (error) => {
@@ -31,6 +35,16 @@ service.interceptors.response.use(
     },
     (error) => {
         let message = '';
+        if (error.response||error.response.data) {
+            const resData=error.response.data 
+            if(resData.msg){
+                message=resData.msg
+            }
+            else if(resData.message){
+                message=resData.message
+            }
+        }
+        if(!message){
         const status = error.response?.status;
         switch (status) {
             case 400:message = '请求错误(400)';break;
@@ -39,9 +53,11 @@ service.interceptors.response.use(
             case 404:message = '资源不存在(404)';break;
             case 422:message = '参数校验错误(422)';break;
             case 500:message = '服务器错误(500)';break;
+            default:message = `网络连接错误`;break;
+        }
         }
          console.error(`❌ HTTP Error ${status}:`, message)
-        return Promise.reject(error);
+        return Promise.reject(new Error(message));
     }
        
 );

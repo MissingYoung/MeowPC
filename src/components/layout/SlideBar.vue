@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+ 
 import { useRoute } from 'vue-router';
 import type { MenuItem } from '@/types';
 import {cn} from '@/lib/utils'
@@ -15,7 +15,7 @@ const menuItems: MenuItem[] = [
   { name: '首页', path: '/', icon: iconHome },
   { name: '发布动态', path: '/post', icon: iconPost },
   { name: '领养申请', path: '/adopt', icon: iconAdopt },
-  { name: '个人中心', path: '/individual', icon: iconIndividual },
+  { name: '个人中心', path: '/userCenter', icon: iconIndividual },
   { name: '系统设置', path: '/settings', icon: iconSettings },
 ];
 </script>

@@ -2,25 +2,43 @@
 import {computed}from 'vue';
 import type { CatListItem } from '@/types';
 import {Button} from './ui/button';
-import { Label } from 'reka-ui';
 import LocationIcon from '@/assets/icons/location.svg';
+import { useRouter } from 'vue-router';
+
+const router=useRouter();
 
 //接受父组件数据
 const props=defineProps<{
     cat:CatListItem
 }>();
 
-//状态字典
-const statusMap={
-    SCHOOL:{label:'在校',color:'bg-green-100 text-green-600',dot:'bg-green-500'},
-    GRADUATED:{label:'已毕业',color:'bg-blue-100 text-blue-600',dot:'bg-blue-500'},
-    MEOW_STAR:{label:'喵星人',color:'bg-gray-100 text-gray-600',dot:'bg-gray-500'},
-    HOSPITAL:{label:'医院',color:'bg-red-100 text-red-600',dot:'bg-red-500'},
+//状态字典 - 支持中英文两种格式
+const statusMap: Record<string, {label: string; color: string; dot: string; ringColor: string}> = {
+    // 英文格式
+    SCHOOL:{label:'在校',color:'bg-green-100 text-green-600',dot:'bg-green-500',ringColor:'ring-green-300'},
+    GRADUATED:{label:'已毕业',color:'bg-blue-100 text-blue-600',dot:'bg-blue-500',ringColor:'ring-blue-300'},
+    MEOW_STAR:{label:'喵星人',color:'bg-purple-100 text-purple-600',dot:'bg-purple-500',ringColor:'ring-purple-300'},
+    HOSPITAL:{label:'医院',color:'bg-red-100 text-red-600',dot:'bg-red-500',ringColor:'ring-red-300'},
+    // 中文格式
+    '在校':{label:'在校',color:'bg-green-100 text-green-600',dot:'bg-green-500',ringColor:'ring-green-300'},
+    '毕业':{label:'已毕业',color:'bg-blue-100 text-blue-600',dot:'bg-blue-500',ringColor:'ring-blue-300'},
+    '喵星人':{label:'喵星人',color:'bg-purple-100 text-purple-600',dot:'bg-purple-500',ringColor:'ring-purple-300'},
+    '医院':{label:'医院',color:'bg-red-100 text-red-600',dot:'bg-red-500',ringColor:'ring-red-300'},
 }
+
+const defaultStatus={label:'未知',color:'bg-gray-100 text-gray-600',dot:'bg-gray-500',ringColor:'ring-gray-300'};
+
 //计算当前状态标签
 const currentStatus=computed(()=>{
-    return statusMap[props.cat.status]||statusMap;
+    const status = props.cat.status || props.cat?.status;
+    return statusMap[status as string] || defaultStatus;
+
 });
+
+//点击详情
+const goToDetail=()=>{
+    router.push({name:'cat-detail',params:{id:props.cat.id}});
+}
 </script>
 
 <template>
@@ -37,9 +55,8 @@ const currentStatus=computed(()=>{
                     <span class="text-sm font-normal text-gray-400">{{ props.cat.color }}</span>
                 </h3>
                 <!--状态呼吸灯-->
-                <span class="relative flex h-2 w-2 ring-1 ring-offset-2 ring-offset-white ring-gray-300 rounded-full" >
-
-                    <span class="relative inline-flex  rounded-full h-2 w-2" :class="currentStatus.dot"></span>
+                <span class="relative flex h-3 w-3 ring-1 ring-offset-2 ring-offset-white rounded-full" :class="currentStatus.ringColor">
+                    <span class="animate-pulse relative inline-flex rounded-full h-3 w-3" :class="currentStatus.dot"></span>
                 </span>
 
             </div>
@@ -56,7 +73,8 @@ const currentStatus=computed(()=>{
                 </span>
             </div>
             <!--详情按钮-->
-            <Button variant="outline" size="sm" class="w-full h-8 rounded-lg mt-2 p-2 bg-primary text-black font-bold text-xs tracking-wider hover:scale-105 hover:bg-primary transition-transform duration-300 ">
+            <Button variant="outline" size="sm" class="w-full h-8 rounded-lg mt-2 p-2 bg-primary text-black font-bold text-xs tracking-wider hover:scale-105 hover:bg-primary transition-transform duration-300 "
+            @click="goToDetail">
                 查看详情
             </Button>
         </div>
