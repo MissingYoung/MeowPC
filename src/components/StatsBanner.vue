@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { statsApi } from '@/lib/api';
-import type { StatsData } from '@/types';
+import type { PublicStatsData } from '@/types';
 
 const loading = ref(true)
-const stats = ref<StatsData>({
-    total: 0,
-    residential: 0,
-    watting: 0,
-    adopted: 0,
-    neutered: 0
+const stats = ref<PublicStatsData>({
+    totalCats: 0,
+    residentCats: 0,
+    adoptedCats: 0,
+    neuteredCats: 0
 });
 const getStats = async () => {
     loading.value = true;
     try {
-        const data = await statsApi.getHomeStats();
+        const data = await statsApi.getPublicStats();
         stats.value = data;
     } catch (error) {
         console.error('获取统计数据失败:', error);
@@ -48,23 +47,23 @@ onMounted(() => {
                 </div>
                 <div v-else class="flex gap-8 md:gap-4 text-center p-2 ">
                     <div class="flex flex-col w-48 items-center border-b rounded-xl bg-white/20 p-3 transition-transform hover:scale-110 group cursor-pointer">
-                        <span class="text-2xl font-bold">{{ stats.total }}</span>
+                        <span class="text-2xl font-bold">{{ stats.totalCats }}</span>
                         <span class="text-sm text-white/80">喵校友总计</span>
                     </div>
                     <div class="flex flex-col w-48 items-center border-b rounded-xl bg-white/20 p-3 transition-transform hover:scale-110 group cursor-pointer">
-                        <span class="text-2xl font-bold">{{ stats.residential }}</span>
+                        <span class="text-2xl font-bold">{{ stats.residentCats }}</span>
                         <span class="text-sm text-white/80">留园观察</span>
                     </div>
                     <div class="flex flex-col w-48 items-center border-b rounded-xl bg-white/20 p-3 transition-transform hover:scale-110 group cursor-pointer">
-                        <span class="text-2xl font-bold">{{ stats.watting }}</span>
+                        <span class="text-2xl font-bold">{{ stats.residentCats }}</span>
                         <span class="text-sm text-white/80">待领养</span>
                     </div>
                     <div class="flex flex-col w-48 items-center border-b rounded-xl bg-white/20 p-3 transition-transform hover:scale-110 group cursor-pointer">
-                        <span class="text-2xl font-bold">{{ stats.adopted }}</span>
+                        <span class="text-2xl font-bold">{{ stats.adoptedCats }}</span>
                         <span class="text-sm text-white/80">已领养</span>
                     </div>
                     <div class="flex flex-col w-48 items-center border-b rounded-xl bg-white/20 p-3 transition-transform hover:scale-110 group cursor-pointer">
-                        <span class="text-2xl font-bold">{{ stats.neutered }}</span>
+                        <span class="text-2xl font-bold">{{ stats.neuteredCats }}</span>
                         <span class="text-sm text-white/80">已绝育</span>
                     </div>
                 </div>

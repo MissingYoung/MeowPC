@@ -21,6 +21,9 @@ import { CampusMap } from '@/types'
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
+const avatarFile = ref<File | null>(null) // 新增：存储上传的头像文件
+const fileInputRef = ref<HTMLInputElement | null>(null) // 文件输入引用
+
 const from = reactive({
     nickname: '',
     campus: '',
@@ -33,36 +36,60 @@ const from = reactive({
 onMounted(() => {
     const userInfo = userStore.userInfo
     if (userInfo) {
-        from.nickname = userInfo.name || ''
-        from.campus = userInfo.campus || ''
+        from.nickname = userInfo.nickname || ''
+        from.campus = String(userInfo.campus) || ''
         from.avatar = userInfo.avatar || ''
-        from.wechat = userInfo.contact.wechat || '--'
-        from.phone = userInfo.contact.phone || '--'
+        from.wechat = userInfo.contact?.wechat || ''
+        from.phone = userInfo.contact?.phone || ''
     }
-
 })
 
-const handleSave = async () => {
+// 触发文件选择
+const handleUpload = () => {
+    fileInputRef.value?.click()
+}
 
+// 处理文件选择
+const handleFileChange = (event: Event) => {
+    const target = event.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (file) {
+        // 验证文件类型
+        if (!file.type.startsWith('image/')) {
+            toast.error('请选择图片文件')
+            return
+        }
+        // 验证文件大小 (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('图片大小不能超过5MB')
+            return
+        }
+        avatarFile.value = file
+        // 创建预览URL
+        from.avatar = URL.createObjectURL(file)
+        toast.success('头像已选择，保存后生效')
+    }
+}
+
+const handleSave = async () => {
     if (!from.nickname || !from.campus) {
         return toast.warning('昵称和校区不能为空')
     }
-    if (!from.wechat || !from.phone) {
-        return toast.warning('请填写联系方式，没有请填 "---"')
-    }
     loading.value = true;
     try {
-
-        const payload = {
-            nickname: from.nickname,
-            campus: from.campus,
-            avatar: from.avatar,
-            contact: {
-                wechat: from.wechat,
-                phone: from.phone
-            }
+        // 使用 FormData 提交
+        const formData = new FormData()
+        formData.append('nickname', from.nickname)
+        formData.append('campus', from.campus)
+        if (from.phone) formData.append('phone', from.phone)
+        if (from.wechat) formData.append('wechat', from.wechat)
+        
+        // 如果有选择新头像文件，添加到FormData
+        if (avatarFile.value) {
+            formData.append('avatar', avatarFile.value)
         }
-        await userStore.updateProfile(payload)
+        
+        await userStore.updateProfile(formData)
         toast.success('保存成功')
         setTimeout(() => {
             router.push('/userCenter')
@@ -85,11 +112,13 @@ const previewCampus = computed(() => {
     return String(from.campus) || '校区'
 })
 
-const handleCancel = () => router.back()
-const handleUpload = () => {
-    //获取到图片 URL 后赋值给 from.avatar
-    // 目前仅提供一个提示
-    toast.info('图片上传功能暂未实现，请直接粘贴图片 URL')
+// 返回上一页或个人中心
+const handleCancel = () => {
+    if (window.history.length > 1) {
+        router.back()
+    } else {
+        router.push('/userCenter')
+    }
 }
 
 
@@ -117,14 +146,21 @@ const handleUpload = () => {
                                 class="w-full h-full object-cover" />
                         </div>
                         <div class="flex-1">
+                            <!-- 隐藏的文件输入 -->
+                            <input 
+                                ref="fileInputRef"
+                                type="file" 
+                                accept="image/*" 
+                                class="hidden"
+                                @change="handleFileChange"
+                            />
                             <div class="flex gap-3">
                                 <Button @click="handleUpload"
                                     class="bg-[#F3B72E] hover:bg-[#E0A82E] text-black font-bold h-9 px-4 rounded-lg text-xs gap-2">
                                     <Upload class="w-4 h-4" /> 上传新头像
                                 </Button>
-                                <!--手动输入头像链接用于测试 -->
-                                <Input v-model="from.avatar" placeholder="或粘贴头像 URL" class="h-9 text-xs bg-white" />
                             </div>
+                            <p class="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，大小不超过 5MB</p>
                         </div>
                     </div>
                 </div>

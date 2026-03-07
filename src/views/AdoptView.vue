@@ -9,11 +9,19 @@ import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { toast } from 'vue-sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger
+} from '@/components/ui/dialog';
+import {
     Home, Building2, School, Users, // 居住图标
     Sprout, PawPrint, HeartHandshake, // 经验图标
     Phone, Mail, MessageCircle, // 联系方式图标
-    AlertCircle, CheckCircle2, FileText
+    AlertCircle, CheckCircle2, FileText, MapPin, RefreshCw
 } from 'lucide-vue-next'
+import type { CatListItem } from '@/types'
  
 
 
@@ -22,6 +30,12 @@ const router = useRouter();
 const targetCat = ref<any>(null);
 const loading = ref(false);
 const submitting = ref(false);
+
+// 猫咪选择弹窗相关
+const isCatDialogOpen = ref(false);
+const catList = ref<CatListItem[]>([]);
+const catLoading = ref(false);
+const catSearchQuery = ref('');
 
 let timer: number | null = null;
 
@@ -37,15 +51,16 @@ const form = ref({
 //选项配置
 const housingOptions = [
     { id: 'OWN_HOUSE', label: '自有住房', icon: Home },
-    { id: 'RENT_WHOLE', label: '整租/合租', icon: Building2 },
-    { id: 'DORM', label: '校内宿舍', icon: School },
-    { id: 'WITH_FAMILY', label: '与父母同住', icon: Users },
+    { id: 'RENT_WHOLE', label: '整租', icon: Building2 },
+    { id: 'RENT_SHARE', label: '合租', icon: Building2 },
+    { id: 'DORM', label: '宿舍', icon: School },
+    { id: 'WITH_PARENT', label: '和父母同住', icon: Users },
 ]
 
 const expOptions = [
     { id: 'NEWBIE', label: '新手', icon: Sprout },
-    { id: 'HAS_CATS', label: '有养猫经验', icon: PawPrint },
-    { id: 'MULTI_CATS', label: '多猫家庭', icon: HeartHandshake },
+    { id: 'EXPERIENCED', label: '有经验', icon: PawPrint },
+    { id: 'MULTI_CAT', label: '多猫家庭', icon: HeartHandshake },
 ]
 
 
@@ -62,6 +77,45 @@ const fetchTargetCat = async (id: string) => {
         loading.value = false;
     }
 }
+
+// 获取猫咪列表
+const fetchCatList = async () => {
+    catLoading.value = true;
+    try {
+        const res = await catApi.getCatList({ page: 1, pageSize: 1000 });
+        catList.value = res.items || [];
+    } catch (e) {
+        toast.error('获取猫咪列表失败');
+        console.error(e);
+    } finally {
+        catLoading.value = false;
+    }
+}
+
+// 搜索过滤
+const filteredCatList = () => {
+    if (!catSearchQuery.value.trim()) return catList.value;
+    const keyword = catSearchQuery.value.toLowerCase();
+    return catList.value.filter(cat => 
+        cat.name?.toLowerCase().includes(keyword)
+    );
+}
+
+// 选择猫咪
+const handleSelectCat = async (cat: CatListItem) => {
+    isCatDialogOpen.value = false;
+    catSearchQuery.value = '';
+    // 获取完整猫咪详情
+    await fetchTargetCat(String(cat.id));
+}
+
+// 监听弹窗打开，刷新猫咪列表
+watch(isCatDialogOpen, (open) => {
+    if (open) {
+        catSearchQuery.value = '';
+        fetchCatList();
+    }
+});
 
 
 
@@ -136,47 +190,6 @@ onUnmounted(() => {
             <p class="text-gray-500 text-sm">用爱给猫咪一个温暖的家</p>
         </div>
 
-        <div
-            class="w-full relative border-b bg-white flex items-center justify-center shadow-sm p-4 rounded-lg my-1/2 z-0 ">
-
-            <!-- 步骤条 -->
-            <div class="flex items-center justify-center  mt-6 relative gap-6 max-w-lg mx-auto">
-                <div class="absolute top-5 left-0 w-full h-0.5 bg-gray-200 "></div>
-
-                <!-- 步骤 1 (激活) -->
-                <div class="flex flex-col items-center  gap-2 bg-white rounded-full p-1 z-10">
-                    <div
-                        class="w-8 h-8 rounded-full bg-[#F3B72E] text-black font-bold flex items-center justify-center shadow-sm">
-                        1</div>
-                    <span class="text-xs font-bold text-gray-800">填写资料</span>
-                </div>
-                <!-- 步骤 2 -->
-                <div class="flex-1"></div>
-                <div class="flex flex-col items-center gap-2 bg-white rounded-full p-1 z-10">
-                    <div
-                        class="w-8 h-8 rounded-full bg-white border-2 border-gray-200 text-gray-400 font-bold flex items-center justify-center">
-                        2</div>
-                    <span class="text-xs text-gray-400">协会审核</span>
-                </div>
-                <!-- 步骤 3 -->
-                <div class="flex-1"></div>
-                <div class="flex flex-col items-center gap-2 bg-white rounded-full p-1 z-10">
-                    <div
-                        class="w-8 h-8 rounded-full bg-white border-2 border-gray-200 text-gray-400 font-bold flex items-center justify-center">
-                        3</div>
-                    <span class="text-xs text-gray-400">线下面谈</span>
-                </div>
-                <!-- 步骤 4 -->
-                <div class="flex-1"></div>
-                <div class="flex flex-col items-center gap-2 bg-white rounded-full p-1 z-10">
-                    <div
-                        class="w-8 h-8 rounded-full bg-white border-2 border-gray-200 text-gray-400 font-bold flex items-center justify-center">
-                        4</div>
-                    <span class="text-xs text-gray-400">接猫回家</span>
-                </div>
-            </div>
-        </div>
-
 
 
         <!-- 核心布局 -->
@@ -187,7 +200,57 @@ onUnmounted(() => {
 
                 <!-- 1. 申请对象 -->
                 <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                    <h3 class="font-bold text-gray-800 mb-4">申请对象</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-800">申请对象</h3>
+                        <Dialog v-model:open="isCatDialogOpen">
+                            <DialogTrigger as-child>
+                                <Button variant="outline" size="sm" class="text-xs gap-1">
+                                    <RefreshCw class="w-3 h-3" />
+                                    {{ targetCat ? '更换猫咪' : '选择猫咪' }}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent class="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+                                <DialogHeader>
+                                    <DialogTitle>选择要领养的猫咪</DialogTitle>
+                                </DialogHeader>
+                                
+                                <!-- 搜索框 -->
+                                <div class="mb-3">
+                                    <Input 
+                                        v-model="catSearchQuery" 
+                                        placeholder="搜索猫咪名称..." 
+                                        class="w-full"
+                                    />
+                                </div>
+
+                                <!-- 加载状态 -->
+                                <div v-if="catLoading" class="flex justify-center py-8">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                                </div>
+
+                                <!-- 猫咪列表 Grid -->
+                                <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto p-1" style="max-height: 400px;">
+                                    <div 
+                                        v-for="cat in filteredCatList()" 
+                                        :key="cat.id"
+                                        @click="handleSelectCat(cat)"
+                                        class="cursor-pointer bg-white border border-gray-100 rounded-xl overflow-hidden hover:ring-2 hover:ring-orange-500 hover:shadow-md transition-all"
+                                    >
+                                        <div class="h-24 bg-gray-100">
+                                            <img :src="cat.avatar" class="w-full h-full object-cover" />
+                                        </div>
+                                        <div class="p-3">
+                                            <div class="font-bold text-gray-800 text-sm truncate">{{ cat.name }}</div>
+                                            <div class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                                <MapPin class="w-3 h-3" /> 
+                                                <span class="truncate">{{ cat.campus }} - {{ cat.color || '未知花色' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                     <div v-if="targetCat"
                         class="bg-gray-50 rounded-lg p-4 flex items-center justify-between border border-gray-100">
                         <div class="flex items-center gap-4">
@@ -207,8 +270,9 @@ onUnmounted(() => {
                         <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded text-xs font-bold">申请中</span>
                     </div>
                     <div v-else
-                        class="bg-gray-50 rounded-lg p-8 text-center text-gray-400 border border-dashed border-gray-200">
-                        请先从首页或猫咪详情页选择要领养的猫咪
+                        class="bg-gray-50 rounded-lg p-8 text-center text-gray-400 border border-dashed border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                        @click="isCatDialogOpen = true">
+                        点击选择要领养的猫咪
                     </div>
                 </div>
 
@@ -222,12 +286,25 @@ onUnmounted(() => {
                 <!-- 2. 居住情况 -->
                 <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
                     <h3 class="font-bold text-gray-800 mb-4">目前的居住情况 <span class="text-red-500">*</span></h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div v-for="opt in housingOptions" :key="opt.id" @click="form.housing = opt.id"
-                            class="cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all h-28"
-                            :class="form.housing === opt.id ? 'border-[#F3B72E] bg-yellow-50 text-black' : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'">
-                            <component :is="opt.icon" class="w-6 h-6" />
-                            <span class="text-sm font-medium">{{ opt.label }}</span>
+                    <!-- 上3下2 奥运五环布局 -->
+                    <div class="flex flex-col gap-4">
+                        <!-- 第一行：3个 -->
+                        <div class="grid grid-cols-3 gap-4">
+                            <div v-for="opt in housingOptions.slice(0, 3)" :key="opt.id" @click="form.housing = opt.id"
+                                class="cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all h-24"
+                                :class="form.housing === opt.id ? 'border-[#F3B72E] bg-yellow-50 text-black' : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'">
+                                <component :is="opt.icon" class="w-6 h-6" />
+                                <span class="text-sm font-medium">{{ opt.label }}</span>
+                            </div>
+                        </div>
+                        <!-- 第二行：2个居中 -->
+                        <div class="grid grid-cols-2 gap-4 max-w-[66.666%] mx-auto w-full">
+                            <div v-for="opt in housingOptions.slice(3, 5)" :key="opt.id" @click="form.housing = opt.id"
+                                class="cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center gap-3 transition-all h-24"
+                                :class="form.housing === opt.id ? 'border-[#F3B72E] bg-yellow-50 text-black' : 'border-gray-100 bg-gray-50 text-gray-500 hover:bg-gray-100'">
+                                <component :is="opt.icon" class="w-6 h-6" />
+                                <span class="text-sm font-medium">{{ opt.label }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -266,7 +343,7 @@ onUnmounted(() => {
 
                         <!-- 手机号 -->
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <label class="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                                 <Phone class="w-4 h-4 text-gray-400" /> 手机号码
                             </label>
                             <Input v-model="form.phone"
@@ -276,7 +353,7 @@ onUnmounted(() => {
 
                         <!-- 微信号 -->
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                            <label class="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                                 <MessageCircle class="w-4 h-4 text-gray-400" /> 微信号码
                             </label>
                             <Input v-model="form.wechat"

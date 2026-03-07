@@ -39,9 +39,9 @@ export const useUserStore =defineStore('user',()=>{
         userInfo.value=null;
         localStorage.removeItem('token')
     }
-    //更新用户信息
-    const updateProfile= async(paramas:UpdateProfileParams)=>{
-        await userApi.updateUserInfo(paramas)
+    //更新用户信息（支持FormData或普通对象）
+    const updateProfile= async(params: UpdateProfileParams | FormData)=>{
+        await userApi.updateUserInfo(params as any)
         await fetchUserInfo();
     }
 

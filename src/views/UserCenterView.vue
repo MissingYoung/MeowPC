@@ -1,9 +1,21 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
+import { adoptionApi, userApi } from '@/lib/api';
+import type { MyAdoptionItem } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CampusMap } from '@/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { toast } from 'vue-sonner';
 
 import forkIcon from '@/assets/icons/fork.svg';
 import foundIcon from '@/assets/icons/found.svg';
@@ -12,23 +24,98 @@ import medalIcon from '@/assets/icons/medal.svg';
 import paperIcon from '@/assets/icons/paper.svg';
 import cameraIcon from '@/assets/icons/camera.svg';
 import fishIcon from '@/assets/icons/fish.svg';
-import { LogOut, Pencil } from 'lucide-vue-next';
+import { LogOut, Pencil, Lock, Eye, EyeOff } from 'lucide-vue-next';
 const router=useRouter()
 const userStore=useUserStore()
+
+// 领养申请列表
+const adoptionList = ref<MyAdoptionItem[]>([])
+const adoptionLoading = ref(false)
+
+// 获取领养申请列表
+const fetchMyAdoptions = async () => {
+  adoptionLoading.value = true
+  try {
+    const res = await adoptionApi.getMyAdoptions({ page: 1, size: 20 })
+    adoptionList.value = res?.items || []
+  } catch (error) {
+    console.error('获取领养申请失败:', error)
+  } finally {
+    adoptionLoading.value = false
+  }
+}
 
 //初始化数据
 onMounted(()=>{
   if(userStore.token){
     userStore.fetchUserInfo();
+    fetchMyAdoptions();
   }
 })
 
-//登出
+//登出确认弹窗
+const isLogoutDialogOpen = ref(false)
+
 const handleLogout=()=>{
-    if(confirm('确定要登出吗')){
-        userStore.logout()
-        router.push('/login')
-    }
+    isLogoutDialogOpen.value = true
+}
+
+const confirmLogout = () => {
+    isLogoutDialogOpen.value = false
+    userStore.logout()
+    router.push('/login')
+}
+
+// 修改密码弹窗相关
+const isPasswordDialogOpen = ref(false)
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const passwordLoading = ref(false)
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+const resetPasswordForm = () => {
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  }
+  showOldPassword.value = false
+  showNewPassword.value = false
+  showConfirmPassword.value = false
+}
+
+const handleChangePassword = async () => {
+  const { oldPassword, newPassword, confirmPassword } = passwordForm.value
+  
+  if (!oldPassword) return toast.warning('请输入原密码')
+  if (!newPassword) return toast.warning('请输入新密码')
+  if (newPassword.length < 6) return toast.warning('新密码至少6位')
+  if (newPassword !== confirmPassword) return toast.warning('两次密码输入不一致')
+  if (oldPassword === newPassword) return toast.warning('新密码不能与原密码相同')
+  
+  passwordLoading.value = true
+  try {
+    await userApi.changePassword({
+      oldPassword,
+      newPassword,
+      confirmPassword
+    })
+    isPasswordDialogOpen.value = false
+    resetPasswordForm()
+    // 登出并跳转到登录页
+    userStore.logout()
+    toast.success('修改密码成功，请重新登录')
+    router.push('/login')
+  } catch (e: any) {
+    toast.error(e.message || '密码修改失败')
+  } finally {
+    passwordLoading.value = false
+  }
 }
 
 //校区计算属性
@@ -65,13 +152,13 @@ const user =computed(() => userStore.userInfo)
         </div>
         
         <div class="flex flex-col gap-2">
-          <h1 class="text-3xl font-bold tracking-wide">{{ user?.name || '爱吃鱼的猫' }}</h1>
+          <h1 class="text-3xl font-bold tracking-wide">{{ user?.nickname || '爱吃鱼的猫' }}</h1>
           <p class="text-white/90 text-sm font-medium">{{ campusName || '未知校区' }}</p>
           
           <!-- 等级胶囊 -->
           <div class="inline-flex items-center bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold w-fit mt-1">
             <span class="mr-1">👑</span>
-            Lv.{{ user?.level || 1 }} {{ user?.levelTitle || '新晋铲屎官' }}
+            Lv.{{ user?.level || 1 }} {{ user?.title || '新晋铲屎官' }}
           </div>
         </div>
       </div>
@@ -155,18 +242,66 @@ const user =computed(() => userStore.userInfo)
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
       <!-- 领养申请 -->
-      <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-start justify-between cursor-pointer hover:shadow-md transition-shadow">
-        <div class="flex gap-4">
-          <div class="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center text-2xl">
-            <img :src="paperIcon" class="w-6 h-6" />
+      <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-red-50 text-red-500 rounded-xl flex items-center justify-center text-2xl">
+              <img :src="paperIcon" class="w-6 h-6" />
+            </div>
+            <div class="flex flex-col justify-center">
+              <h3 class="font-bold text-gray-800 text-lg">领养申请</h3>
+              <span class="text-xs text-gray-400 mt-1">查看申请进度</span>
+            </div>
           </div>
-          <div class="flex flex-col justify-center">
-            <h3 class="font-bold text-gray-800 text-lg">领养申请</h3>
-            <span class="text-xs text-gray-400 mt-1">查看申请进度</span>
+          <router-link 
+            to="/my-adoptions" 
+            class="text-sm text-orange-500 hover:text-orange-600 font-medium"
+          >
+            查看全部 →
+          </router-link>
+        </div>
+        
+        <!-- 申请列表（只显示前3条） -->
+        <div v-if="adoptionLoading" class="text-center py-4 text-gray-400 text-sm">
+          加载中...
+        </div>
+        <div v-else-if="adoptionList.length === 0" class="text-center py-4 text-gray-400 text-sm">
+          暂无领养申请
+        </div>
+        <div v-else class="space-y-3">
+          <div 
+            v-for="item in adoptionList.slice(0, 3)" 
+            :key="item.id"
+            class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+            @click="router.push(`/cat/${item.catId}`)"
+          >
+            <img :src="item.catAvatar" class="w-10 h-10 rounded-full object-cover" />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-800 truncate">{{ item.catName }}</div>
+              <div class="text-xs text-gray-400">{{ item.createTime?.slice(0, 10) }}</div>
+            </div>
+            <span 
+              :class="[
+                'px-2 py-1 text-[10px] font-bold rounded',
+                item.status === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :
+                item.status === 'INTERVIEW' ? 'bg-blue-100 text-blue-600' :
+                item.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                item.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                item.status === 'COMPLETED' ? 'bg-gray-100 text-gray-600' :
+                'bg-gray-100 text-gray-600'
+              ]"
+            >
+              {{ 
+                item.status === 'PENDING' ? '待审核' :
+                item.status === 'INTERVIEW' ? '面试中' :
+                item.status === 'APPROVED' ? '已通过' :
+                item.status === 'REJECTED' ? '已拒绝' :
+                item.status === 'COMPLETED' ? '已完成' :
+                item.status
+              }}
+            </span>
           </div>
         </div>
-        <!-- 标签 -->
-        <span class="px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded">审核中</span>
       </div>
 
       <!-- 荣誉勋章 -->
@@ -184,16 +319,125 @@ const user =computed(() => userStore.userInfo)
 
     </div>
 
-    <!-- 5. 退出登录 -->
-    <div class="flex justify-center mt-4">
+    <!-- 5. 修改密码 & 退出登录 -->
+    <div class="flex justify-center items-center gap-6 mt-4">
+      <button 
+        @click="isPasswordDialogOpen = true" 
+        class="flex items-center gap-2 text-gray-400 hover:text-orange-500 text-sm font-bold transition-colors py-2 rounded-lg"
+      >
+        <Lock class="w-4 h-4" />
+        修改密码
+      </button>
+      <span class="text-gray-200">|</span>
       <button 
         @click="handleLogout" 
-        class="flex items-center gap-2 text-gray-400 hover:text-red-500 text-sm font-bold transition-colors py-2  rounded-lg"
+        class="flex items-center gap-2 text-gray-400 hover:text-red-500 text-sm font-bold transition-colors py-2 rounded-lg"
       >
         <LogOut class="w-4 h-4 text-center" />
         退出登录
       </button>
     </div>
+
+    <!-- 修改密码弹窗 -->
+    <Dialog v-model:open="isPasswordDialogOpen" @update:open="(open) => !open && resetPasswordForm()">
+      <DialogContent class="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>修改密码</DialogTitle>
+        </DialogHeader>
+        
+        <div class="flex flex-col gap-4 py-4">
+          <!-- 原密码 -->
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-gray-700">原密码</label>
+            <div class="relative">
+              <Input 
+                v-model="passwordForm.oldPassword"
+                :type="showOldPassword ? 'text' : 'password'"
+                placeholder="请输入原密码"
+                class="pr-10"
+              />
+              <button 
+                type="button"
+                @click="showOldPassword = !showOldPassword"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <Eye v-if="!showOldPassword" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          
+          <!-- 新密码 -->
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-gray-700">新密码</label>
+            <div class="relative">
+              <Input 
+                v-model="passwordForm.newPassword"
+                :type="showNewPassword ? 'text' : 'password'"
+                placeholder="请输入新密码（至少6位）"
+                class="pr-10"
+              />
+              <button 
+                type="button"
+                @click="showNewPassword = !showNewPassword"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <Eye v-if="!showNewPassword" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          
+          <!-- 确认新密码 -->
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-gray-700">确认新密码</label>
+            <div class="relative">
+              <Input 
+                v-model="passwordForm.confirmPassword"
+                :type="showConfirmPassword ? 'text' : 'password'"
+                placeholder="请再次输入新密码"
+                class="pr-10"
+              />
+              <button 
+                type="button"
+                @click="showConfirmPassword = !showConfirmPassword"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <Eye v-if="!showConfirmPassword" class="w-4 h-4" />
+                <EyeOff v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            @click="isPasswordDialogOpen = false"
+            :disabled="passwordLoading"
+          >
+            取消
+          </Button>
+          <Button 
+            @click="handleChangePassword"
+            :disabled="passwordLoading"
+            class="bg-orange-500 hover:bg-orange-600 text-white"
+          >
+            {{ passwordLoading ? '提交中...' : '确认修改' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- 登出确认对话框 -->
+    <ConfirmDialog
+      v-model:open="isLogoutDialogOpen"
+      title="退出登录"
+      description="确定要退出当前账号吗？"
+      confirm-text="退出"
+      variant="warning"
+      @confirm="confirmLogout"
+    />
 
   </div>
 </template>

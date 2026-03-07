@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/user'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'vue-sonner';
+import { Eye, EyeOff } from 'lucide-vue-next';
 
 import logo from '@/assets/icons/logo.svg'
 
@@ -18,12 +19,15 @@ const form = ref({
 })
 
 const loading = ref(false)
+const showPassword = ref(false)
 
 const handleLogin = async () => {
     if (!form.value.email || !form.value.password) {
         toast.warning('请输入邮箱和密码')
-        loading.value = true;
-    } try {
+        return
+    }
+    loading.value = true
+    try {
         await userStore.login(form.value)
         toast.success('登录成功')
         router.push('/')
@@ -68,9 +72,21 @@ const goRegister = () => {
                         <Input v-model="form.email" placeholder="请输入山大邮箱"
                             class="flex auto bg-transparent text-base shadow-none placeholder:text-gray-400 focus-visible:ring-0" />
                     </div>
-                    <div class="bg-gray-50 rounded-2xl p-1">
-                        <Input v-model="form.password" placeholder="请输入密码"
-                            class="flex auto bg-transparent text-base shadow-none placeholder:text-gray-400 focus-visible:ring-0" />
+                    <div class="bg-gray-50 rounded-2xl p-1 relative">
+                        <Input 
+                            v-model="form.password" 
+                            :type="showPassword ? 'text' : 'password'"
+                            placeholder="请输入密码"
+                            class="flex auto bg-transparent text-base shadow-none placeholder:text-gray-400 focus-visible:ring-0 pr-10" 
+                        />
+                        <button 
+                            type="button"
+                            @click="showPassword = !showPassword"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <Eye v-if="!showPassword" class="w-4 h-4" />
+                            <EyeOff v-else class="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
                 <!--登录按钮-->
@@ -86,8 +102,7 @@ const goRegister = () => {
                 <!--底部链接-->
                 <div class="mt-8 flex  items-center justify-center gap-4 text-sm text-gray-400">
                     <span class="cursor-pointer hover:text-gray-600 transition-colors " @click="goVisitor">游客登录</span>
-                    <span>|</span>
-                    <span class="cursor-pointer hover:text-gray-600 transition-colors">忘记密码</span>
+                   
                 </div>
                 <div class="mt-2 flex items-center justify-center text-sm text-gray-400">
                     <span>没有账号？</span>

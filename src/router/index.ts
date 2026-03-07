@@ -60,6 +60,69 @@ const router = createRouter({
       component: () => import('@/views/PostMomentView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/new-cat',
+      name: 'new-cat',
+      component: () => import('@/views/NewCatView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/my-adoptions',
+      name: 'my-adoptions',
+      component: () => import('@/views/MyAdoptionView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/checkin-history',
+      name: 'checkin-history',
+      component: () => import('@/views/CheckinHistoryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/admin',
+      component: () => import('@/components/layout/AdminLayout.vue'),
+      children: [
+        {
+          path: '',
+          redirect: '/admin/dashboard'
+        },
+        {
+          path: 'dashboard',
+          name: 'admin-dashboard',
+          component: () => import('@/views/admin/AdminDashboardView.vue')
+        },
+        {
+          path: 'sos',
+          name: 'admin-sos',
+          component: () => import('@/views/admin/AdminSOSView.vue')
+        },
+        {
+          path: 'cats',
+          name: 'admin-cats',
+          component: () => import('@/views/admin/AdminCatView.vue')
+        },
+        {
+          path: 'adoptions',
+          name: 'admin-adoptions',
+          component: () => import('@/views/admin/AdminAdoptionView.vue')
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('@/views/admin/AdminUserView.vue')
+        },
+        {
+          path: 'users/:id',
+          name: 'admin-user-detail',
+          component: () => import('@/views/admin/AdminUserDetailView.vue')
+        },
+        {
+          path: 'new-cats',
+          name: 'admin-new-cats',
+          component: () => import('@/views/admin/AdminNewCatView.vue')
+        }
+      ]
+    },
 
     
   

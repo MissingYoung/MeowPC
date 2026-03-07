@@ -1,23 +1,32 @@
 <script setup lang="ts">
  
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { MenuItem } from '@/types';
 import {cn} from '@/lib/utils'
 import logo from '@/assets/icons/logo.svg'
 import iconHome from '@/assets/icons/home.svg'
 import iconPost from '@/assets/icons/post.svg'
+import iconFound from '@/assets/icons/found.svg'
 import iconAdopt from '@/assets/icons/adopt.svg'
 import iconIndividual from '@/assets/icons/individual.svg'
-import iconSettings from '@/assets/icons/settings.svg'
+import { useUserStore } from '@/stores/user'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 const route = useRoute();
+const router = useRouter();
+const userStore = useUserStore();
+
 const menuItems: MenuItem[] = [
   { name: '首页', path: '/', icon: iconHome },
   { name: '发布动态', path: '/post', icon: iconPost },
+  { name: '发现新猫', path: '/new-cat', icon: iconFound },
   { name: '领养申请', path: '/adopt', icon: iconAdopt },
   { name: '个人中心', path: '/userCenter', icon: iconIndividual },
-  { name: '系统设置', path: '/settings', icon: iconSettings },
 ];
+
+const goToUserCenter = () => {
+  router.push('/userCenter')
+}
 </script>
 
 <template>
@@ -51,7 +60,33 @@ const menuItems: MenuItem[] = [
                 <span>{{ item.name }}</span>
             </router-link>
         </nav>
+        
         <!--底部用户信息-->
+        <div 
+          v-if="userStore.userInfo" 
+          @click="goToUserCenter"
+          class="flex items-center gap-3 px-4 py-4 border-t border-white/10 cursor-pointer hover:bg-white/5 transition-colors shrink-0"
+        >
+          <Avatar class="w-10 h-10 border-2 border-primary">
+            <AvatarImage :src="userStore.userInfo.avatar" :alt="userStore.userInfo.nickname" />
+            <AvatarFallback class="bg-primary text-black font-bold">
+              {{ userStore.userInfo.nickname?.slice(0, 1) || 'U' }}
+            </AvatarFallback>
+          </Avatar>
+          <div class="flex flex-col overflow-hidden">
+            <span class="text-sm font-semibold text-white truncate">{{ userStore.userInfo.nickname }}</span>
+            <span class="text-xs text-gray-400 truncate">Lv.{{ userStore.userInfo.level }} {{ userStore.userInfo.title }}</span>
+          </div>
+        </div>
+        
+        <!-- 未登录状态 -->
+        <div 
+          v-else
+          @click="router.push('/login')"
+          class="flex items-center justify-center gap-2 px-4 py-4 border-t border-white/10 cursor-pointer hover:bg-white/5 transition-colors shrink-0"
+        >
+          <span class="text-sm text-gray-400 hover:text-white">点击登录</span>
+        </div>
         
     </aside>
 

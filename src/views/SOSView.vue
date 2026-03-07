@@ -18,6 +18,8 @@ const route = useRoute()
 const loading = ref(false)
 const symptomTags = ref<string[]>([]) // 后端返回的症状列表
 const catList = ref<CatListItem[]>([]) // 猫咪列表
+const catLoading = ref(false)
+const catSearchQuery = ref('')
 const isCatDialogOpen = ref(false)
 const fileInputRef = ref<HTMLInputElement>()
 
@@ -38,16 +40,46 @@ const campusOptions = Object.entries(CampusMap).map(([key, label]) => ({
   label: label
 }))
 
+// 获取猫咪列表
+const fetchCatList = async () => {
+  catLoading.value = true
+  try {
+    const res = await catApi.getCatList({ page: 1, pageSize: 1000 })
+    catList.value = Array.isArray(res) ? res : (res?.items || [])
+  } catch (e) {
+    console.error(e)
+  } finally {
+    catLoading.value = false
+  }
+}
+
+// 过滤后的猫咪列表（支持搜索）
+const filteredCatList = () => {
+  if (!catSearchQuery.value.trim()) return catList.value
+  const q = catSearchQuery.value.toLowerCase()
+  return catList.value.filter(cat => 
+    cat.name?.toLowerCase().includes(q) || 
+    String(cat.campus || '').toLowerCase().includes(q) ||
+    String(cat.color || '').toLowerCase().includes(q)
+  )
+}
+
+// 弹窗打开时刷新数据
+watch(isCatDialogOpen, (open) => {
+  if (open) {
+    catSearchQuery.value = ''
+    fetchCatList()
+  }
+})
+
 // --- 初始化 ---
 onMounted(async () => {
   try {
-    const [tags, cats] = await Promise.all([
+    const [tags] = await Promise.all([
       sosApi.getTags(),
-      catApi.getCatList()
+      fetchCatList()
     ])
     symptomTags.value = tags || []
-    // 修复：直接使用返回的数据，兼容 { items: [...] } 和 [...] 两种格式
-    catList.value = Array.isArray(cats) ? cats : (cats?.items || [])
 
     // ✨ 从查询参数预填充猫咪（类似领养页）
     const catId = route.query.catId as string
@@ -202,8 +234,15 @@ const handleSubmit = async () => {
               <DialogHeader>
                 <DialogTitle>选择受伤猫咪</DialogTitle>
               </DialogHeader>
-              
-              <!-- “未知猫咪”选项 -->
+                            <!-- 搜索框 -->
+              <div class="mb-3">
+                <Input 
+                  v-model="catSearchQuery" 
+                  placeholder="搜索猫咪名称..." 
+                  class="w-full"
+                />
+              </div>
+                            <!-- “未知猫咪”选项 -->
               <div 
                 @click="handleSelectUnknown"
                 class="p-4 mb-2 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:border-red-200 hover:text-red-500 text-gray-500 transition-colors"
@@ -212,10 +251,15 @@ const handleSubmit = async () => {
                 <span class="font-bold">我不认识这只猫 / 未知猫咪</span>
               </div>
 
+              <!-- 加载状态 -->
+              <div v-if="catLoading" class="flex justify-center py-8">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+              </div>
+
               <!-- 猫咪列表 Grid -->
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto p-1">
+              <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto p-1" style="max-height: 400px;">
                 <div 
-                  v-for="cat in catList" 
+                  v-for="cat in filteredCatList()" 
                   :key="cat.id"
                   @click="handleSelectCat(cat)"
                   class="cursor-pointer bg-white border border-gray-100 rounded-xl overflow-hidden hover:ring-2 hover:ring-red-500 hover:shadow-md transition-all"

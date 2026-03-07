@@ -3,6 +3,7 @@ export interface ApiResponse<T> {
   code: number;
   data: T;
   message?: string;
+  msg?: string; // 兼容后端返回的 msg 字段
 }
 
 //登录/注册参数
@@ -24,21 +25,28 @@ export interface RegisterParams {
   code: string;//验证码
   
 }
+
+// 修改密码参数
+export interface ChangePasswordParams {
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
 //用户详情（主接口）
 export interface UserInfo {
-  id: string;
-  name: string;
-  studentId: string;
+  uid: number;        // 用户ID
+  nickname: string;   // 昵称
+  sid: string;        // 学号
   avatar: string;
   level: number;
-  levelTitle: string; // "资深铲屎官"
-  experience: number; // 当前经验
-  nextLevelExp: number; // 升级所需经验
-  campus: string;
+  title: string;      // 等级称号 "资深铲屎官"
+  exp: number;        // 当前经验
+  nextExp: number;    // 升级所需经验
+  campus: number;     // 校区ID
   currency: number;   // 小鱼干余额 
   stats: UserStats;   // 
-  settings: UserSettings; // 
-  contact: {
+  settings?: UserSettings; // 
+  contact?: {
     wechat: string;
     phone: string;
   }
@@ -47,12 +55,10 @@ export interface UserInfo {
 //用户信息更新参数
 export interface UpdateProfileParams {
   nickname: string;
-  avatar: string;
-  campus: string;
-  contact:{
-    wechat: string;
-    phone: string;
-  }
+  avatar?: string | File;
+  campus?: string;
+  phone?: string;
+  wechat?: string;
 }
 
 //用户统计数据
@@ -94,6 +100,14 @@ export interface StatsData {
   neutered: number;
 }
 
+// 公共统计数据（/stats/public）
+export interface PublicStatsData {
+  totalCats: number;
+  residentCats: number;
+  adoptedCats: number;
+  neuteredCats: number;
+}
+
 //首页快捷卡片数据项
 export interface ShortcutItem {
   id: number;
@@ -128,7 +142,7 @@ export interface CatBasicInfo {
   color: string;
   gender: Gender;
   campus: Campus;
-  huntLocation: string;
+  huntLocation?: string;
   role: string;
   birtYear: number;
   admissionDate: string;
@@ -172,18 +186,56 @@ export interface CatDetail {
   relationships: CatRelation[];//猫际关系
   description: string;//猫咪描述
   popularity: number;//人气值
+  locationName?: string; // 常驻地点名称
 
 }
 
 //猫猫列表查询参数
 export interface CatListItem {
-  id: number;
+  id: number | string; // 兼容现有 number 和 API string
+  name: string;
+  avatar: string;
+  color?: string;
+  status: string; // 兼容 Status enum
+  campus: string | number; // 兼容 Campus enum
+  popularity?: number;
+}
+
+// 管理端猫咪列表项 (完全匹配 API)
+export interface AdminCatItem {
+  id: string;
   name: string;
   avatar: string;
   color: string;
-  status: Status;
-  campus: Campus;
+  campus: string;
+  locationName: string;  // 常驻地点名称（从API获取）
+  hauntLocation?: string; // 常驻地点（提交时用）
+  status: string;
+  gender: string; // 性别 MALE | FEMALE
+  healthStatus?: string; // 健康状况
+  tags: string[];
+  isNeutered: boolean;
   popularity: number;
+  lastSeenTime: string;
+  roleName: string;
+  description?: string; // 猫咪描述
+  attributes: {
+    friendliness: number;
+    gluttony: number;
+    fight: number;
+    appearance: number;
+  }; // 属性评分
+}
+
+// 猫咪列表查询参数
+export interface CatQueryParams {
+  page: number;
+  pageSize: number;
+  campus?: string;
+  status?: string;
+  color?: string;
+  search?: string;
+  sort?: string;
 }
 
 //领养申请参数
@@ -199,6 +251,36 @@ export interface AdoptionPasrams {
     phone: string;
   }
 }
+
+// 领养申请列表项（管理员端）
+export interface AdoptionItem {
+  id: string;
+  userId: number;
+  userName: string;
+  userAvatar?: string; // 申请人头像
+  catId: string;
+  catName: string;
+  catAvatar: string;
+  status: string; // PENDING, INTERVIEW, APPROVED, REJECTED, COMPLETED
+  createTime: string;
+  info: {
+    plan: string;        // 喂养计划
+    housing: string;     // 住房情况: OWN_HOUSE, RENT_WHOLE, RENT_SHARE, DORM, WITH_PARENT
+    experience: string;  // 养猫经验: NEWBIE, EXPERIENCED, MULTI_CAT
+  };
+  contact: {
+    phone: string;
+    wechat: string;
+  };
+}
+
+// 领养申请查询参数
+export interface AdoptionQueryParams {
+  status?: string;
+  page: number;
+  size: number;
+}
+
 //sos求助参数
 export interface SOSParams {
   catId?: string;
@@ -206,8 +288,32 @@ export interface SOSParams {
   location: string;
   symptoms: string[];
   description: string;
-  media: string[];
+  media: string[]; // 修改为 meta 对应 API 文档
 }
+
+export interface SOSItem {
+  id: string; // SOS UUID
+  catId: string | null;
+  catName?: string;
+  campus: number;
+  location: string;
+  symptoms: string[];
+  description: string;
+  imageURLs: string[]; // 从 API 返回的字段名
+  create_time?: string;
+  status: string; // PENDING, PROCESSED, etc.
+  adminReply?: string | null;
+  reporterId?: number;
+  reporterName?: string;
+}
+
+export interface SOSQueryParams {
+  status?: string;
+  campus?: number;  // 直接使用数字 (0-7)
+  page: number;
+  size: number;
+}
+
 
 //排行榜类型枚举
 export type LeaderboardType = 'popularity' | 'appearance' | 'gluttony' | 'fight';
@@ -225,7 +331,7 @@ export interface LeaderboardItem {
 //发布动态参数
 export interface MomentParams {
   content?: string;       // 内容（可选）
-  media?: string[];       // 图片链接数组（可选）
+  media?: File[];         // 图片文件数组（可选）
   relatedCatIds: string; // 关联的猫咪ID
   location?: string;     // 位置 
 }
@@ -254,4 +360,155 @@ export interface MomentItem {
   likeCount: number;    // 点赞数
   isLiked: boolean;     // 当前用户是否点赞
   createTime: string;   // 时间
+}
+
+// 3. 列表查询参数
+export interface MomentQueryParams {
+  page: number;
+  pageSize: number;
+  catId?: string; // 关联猫咪ID
+}
+
+// 编辑猫咪参数
+export interface EditCatParams {
+  name: string;
+  aliases?: string[];
+  color: string;
+  avatar: string;
+  images?: string[];
+  gender: string;
+  campus: string;
+  hauntLocation?: string;
+  birthYear?: number;
+  admissionDate?: string;
+  status: string;
+  healthStatus?: string;
+  attributes: Record<string, number>;
+  isNeutered: boolean;
+  neuteredDate?: string;
+  neuteredType?: string;
+  description?: string;
+  tags?: string[];
+}
+
+// 管理端用户列表项
+export interface AdminUserItem {
+  id: number;
+  email?: string;
+  name: string;
+  avatar?: string;
+  status?: string;
+  role?: string;
+  roleName?: string;
+  permission?: string; // 某些接口返回权限而非角色
+  studentId?: string; // 兼容部分接口返回 studentId
+  sid?: string;
+  campus?: number | string;
+  level?: number;
+  levelTitle?: string;
+  experience?: number;
+  currency?: number;
+  phone?: string;
+  wechat?: string;
+  createTime?: string;
+  lastLoginTime?: string;
+}
+
+export interface AdminUserListResponse {
+  size: number;
+  current: number;
+  total: number;
+  pages: number;
+  items: AdminUserItem[];
+}
+
+// 管理端用户详情
+export interface AdminUserDetail extends AdminUserItem {
+  nickname?: string;
+  permission?: string;
+  exp?: number;
+  nextExp?: number;
+  stats?: {
+    feedCount: number;
+    foundNewCatCount?: number;
+    found?: number;
+    receivedLikes: number;
+    momentCount: number;
+  };
+}
+
+// 用户列表查询参数
+export interface UserQueryParams {
+  page: number;
+  size: number;
+  campus?: number;
+  search?: string; // 支持邮箱或UID查找
+}
+
+// 新喵线索列表项（管理员端）
+export interface NewCatItem {
+  id: string;
+  tempName: string | null;  // 临时名称
+  officialName?: string;    // 正式名称（审核通过后）
+  color: string;            // 毛色
+  images: string[];         // 图片数组
+  campus: string;           // 校区名称
+  location: string;         // 详细位置
+  submitterId: string;      // 提交者ID
+  submitterName: string;    // 提交者名称
+  status: string;           // PENDING, APPROVED, REJECTED
+  createTime: string;       // 创建时间
+  tags?: string[];          // 标签
+}
+
+// 新喵线索查询参数
+export interface NewCatQueryParams {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+// 用户端我的领养申请列表项
+export interface MyAdoptionItem {
+  id: string;
+  catId: string;
+  catName: string;
+  catAvatar: string;
+  status: string; // PENDING, INTERVIEW, APPROVED, REJECTED, COMPLETED
+  createTime: string;
+  reason: string | null; // 拒绝原因
+}
+
+// 用户端我的领养申请查询参数
+export interface MyAdoptionQueryParams {
+  status?: string;
+  page?: number;
+  size?: number;
+}
+
+// 用户端我的领养申请分页结果
+export interface MyAdoptionPageResult {
+  items: MyAdoptionItem[];
+  total: number;
+  pages: number;
+  size: number;
+  current: number;
+}
+
+// 每日签到结果
+export interface CheckinResult {
+  totalDays: number;        // 总签到天数
+  rewards: {
+    currency: number;       // 获得小鱼干
+    experience: number;     // 获得经验
+  };
+  todayChecked: boolean;    // 今天是否已签到（操作前）
+  continuousDays: number;   // 连续签到天数
+}
+
+// 签到历史记录
+export interface CheckinHistory {
+  checkInDates: string[];   // 签到日期数组
+  month: string;            // 查询月份
+  totalDays: number;        // 本月签到天数
 }

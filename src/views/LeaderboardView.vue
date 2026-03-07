@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { catApi } from '@/lib/api'
-import { CampusMap, type LeaderboardType, type LeaderboardItem } from '@/types'
+import { type LeaderboardType, type LeaderboardItem } from '@/types'
 import { Button } from '@/components/ui/button'
-import { Crown, MapPin, Info, CheckCircle2 } from 'lucide-vue-next'
+import { Crown, MapPin, Info, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-vue-next'
 
 
 const currentTab = ref<LeaderboardType>('popularity')
 const list = ref<LeaderboardItem[]>([])
 const loading = ref(false)
+const showAll = ref(false) // 是否显示完整排名
+const defaultShowCount = 17 // 默认显示的剩余数量（第4-20名）
 
 // 榜单选项配置
 const tabs: { key: LeaderboardType; label: string }[] = [
@@ -26,14 +28,25 @@ const topThree = computed(() => {
   const first = list.value[0]
   const second = list.value[1]
   const third = list.value[2]
-  return [second, first, third].filter(Boolean)
+  return [second, first, third].filter((item): item is LeaderboardItem => Boolean(item))
 })
 
-// 剩余列表 
-const restList = computed(() => {
+// 剩余列表（全部，不含前3名）
+const allRestList = computed(() => {
   if (!Array.isArray(list.value)) return []
   return list.value.slice(3)
 })
+
+// 显示的剩余列表（默认17个，点击查看更多后显示全部）
+const restList = computed(() => {
+  if (showAll.value) {
+    return allRestList.value
+  }
+  return allRestList.value.slice(0, defaultShowCount)
+})
+
+// 是否有更多数据可显示
+const hasMore = computed(() => allRestList.value.length > defaultShowCount)
 
 //单位列表
 const scoreUnit =computed(()=>{
@@ -55,7 +68,7 @@ const scoreUnit =computed(()=>{
 const fetchData = async () => {
   loading.value = true
   try {
-    const res: any = await catApi.getLeaderboard(currentTab.value, 50)
+    const res: any = await catApi.getLeaderboard(currentTab.value, 100)
     
     console.log(' 调试数据:', res) 
 
@@ -87,8 +100,9 @@ const fetchData = async () => {
   }
 }
 
-// 切换 Tab 时自动刷新
+// 切换 Tab 时自动刷新并重置显示状态
 watch(currentTab, () => {
+  showAll.value = false
   fetchData()
 })
 
@@ -232,11 +246,27 @@ const getCrownColor = (index: number) => {
             </div>
           </div>
           
-          <!-- 加载更多 -->
-          <div class="p-4 text-center border-t border-gray-50">
-            <Button variant="outline" class="text-xs h-9 rounded-full px-6 text-gray-500 hover:text-[#FF9F1C]">
-              加载更多 <span class="ml-1">↓</span>
-            </Button>
+          <!-- 查看更多/收起按钮 -->
+          <div v-if="hasMore" class="p-4 border-t border-gray-50">
+            <div class="flex flex-col items-center gap-2">
+              <Button
+                variant="ghost"
+                class="text-[#FF9F1C] hover:bg-[#FF9F1C]/10 flex items-center gap-2"
+                @click="showAll = !showAll"
+              >
+                <template v-if="!showAll">
+                  <span>查看更多</span>
+                  <ChevronDown class="w-4 h-4" />
+                </template>
+                <template v-else>
+                  <span>收起</span>
+                  <ChevronUp class="w-4 h-4" />
+                </template>
+              </Button>
+              <div class="text-xs text-gray-400">
+                当前显示 {{ restList.length + 3 }}/{{ list.length }} 只猫咪
+              </div>
+            </div>
           </div>
         </div>
 

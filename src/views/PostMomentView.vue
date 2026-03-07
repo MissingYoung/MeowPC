@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
-import { Image as ImageIcon, X, ChevronRight, CheckCircle2, Search, MapPin } from 'lucide-vue-next'
+import { Image as ImageIcon, X, ChevronRight, CheckCircle2, MapPin, Search } from 'lucide-vue-next'
 import type { CatListItem } from '@/types'
 
 const router = useRouter()
@@ -17,6 +17,8 @@ const isCatDialogOpen = ref(false)
 
 // 基础数据
 const catList = ref<CatListItem[]>([])
+const catLoading = ref(false)
+const catSearchQuery = ref('')
 
 // 表单数据
 const form = ref({
@@ -24,37 +26,65 @@ const form = ref({
   title: '',
   content: '',
   tags: [] as string[],
-  images: [] as string[], 
+  images: [] as string[], // 预览URL
+  imageFiles: [] as File[], // 实际文件对象
   location: '' // API 需要 location
 })
 
 // 预设标签
 const predefinedTags = ['日常', '搞笑', '可爱', '求助', '科普', '记录', '偶遇', '投喂']
 
-// 初始化 
-onMounted(async () => {
+// 获取猫咪列表
+const fetchCatList = async () => {
+  catLoading.value = true
   try {
-    const res = await catApi.getCatList()
+    const res = await catApi.getCatList({ page: 1, pageSize: 1000 })
     catList.value = Array.isArray(res) ? res : (res?.items || [])
-
-    // ✨ 从查询参数预填充猫咪（类似 SOS 和领养页）
-    const catId = route.query.catId as string
-    if (catId && catList.value.length > 0) {
-      // 安全比较：先尝试数字比较，再提会字符串比较
-      const numCatId = Number(catId)
-      const selectedCat = catList.value.find(c => 
-        c.id === numCatId || String(c.id) === catId
-      )
-      if (selectedCat) {
-        form.value.selectedCat = selectedCat
-        // 自动填入猫咪的位置作为默认地点
-        if (!form.value.location && selectedCat.campus) {
-          form.value.location = String(selectedCat.campus)
-        }
-      }
-    }
   } catch (e) {
     console.error(e)
+  } finally {
+    catLoading.value = false
+  }
+}
+
+// 过滤后的猫咪列表（支持搜索）
+const filteredCatList = () => {
+  if (!catSearchQuery.value.trim()) return catList.value
+  const q = catSearchQuery.value.toLowerCase()
+  return catList.value.filter(cat => 
+    cat.name?.toLowerCase().includes(q) || 
+    String(cat.campus || '').toLowerCase().includes(q) ||
+    String(cat.color || '').toLowerCase().includes(q)
+  )
+}
+
+// 弹窗打开时刷新数据
+watch(isCatDialogOpen, (open) => {
+  if (open) {
+    catSearchQuery.value = ''
+    fetchCatList()
+  }
+})
+
+// 初始化 
+onMounted(async () => {
+  await fetchCatList()
+
+  // ✨ 从查询参数预填充猫咪（类似 SOS 和领养页）
+  const catId = route.query.catId as string
+  if (catId && catList.value.length > 0) {
+    // 安全比较：先尝试数字比较，再提会字符串比较
+    const numCatId = Number(catId)
+    const selectedCat = catList.value.find(c => 
+      c.id === numCatId || String(c.id) === catId
+    )
+    if (selectedCat) {
+      form.value.selectedCat = selectedCat
+      // 自动填入猫咪的位置作为默认地点
+      if (!form.value.location && selectedCat.campus) {
+        form.value.location = String(selectedCat.campus)
+      }
+    }
   }
 })
 
@@ -103,13 +133,16 @@ const handleFileChange = (e: Event) => {
 
   // 模拟上传：转为 Blob URL 预览
   for (let i = 0; i < files.length; i++) {
-    const url = URL.createObjectURL(files[i]!)
+    const file = files[i]!
+    const url = URL.createObjectURL(file)
     form.value.images.push(url)
+    form.value.imageFiles.push(file)
   }
 }
 
 const removeImage = (index: number) => {
   form.value.images.splice(index, 1)
+  form.value.imageFiles.splice(index, 1)
 }
 
 //  标签切换
@@ -142,12 +175,12 @@ const handleSubmit = async () => {
       content: finalContent || undefined, // 空字符串传 undefined
       relatedCatIds: String(form.value.selectedCat.id), 
       location: form.value.location || '校园内',
-      media: form.value.images.length > 0 ? form.value.images : undefined // 没有图片传 undefined
+      media: form.value.imageFiles.length > 0 ? form.value.imageFiles : undefined // 传递实际文件
     }
 
     await momentApi.createMoment(payload)
     
-    toast.success('发布成功！审核通过后将展示。')
+    toast.success('发布成功！')
     router.push('/') // 跳回下页或 动态列表页
 
   } catch (error: any) {
@@ -196,18 +229,41 @@ const handleSubmit = async () => {
               <DialogHeader>
                 <DialogTitle>选择主角猫咪</DialogTitle>
               </DialogHeader>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto p-1 mt-2">
-                <div 
-                  v-for="cat in catList" 
-                  :key="cat.id"
-                  @click="handleSelectCat(cat)"
-                  class="cursor-pointer bg-white border border-gray-100 rounded-xl overflow-hidden hover:ring-2 hover:ring-[#F3B72E] hover:shadow-md transition-all"
-                >
-                  <div class="h-24 bg-gray-100">
-                    <img :src="cat.avatar" class="w-full h-full object-cover" />
-                  </div>
-                  <div class="p-3 text-center">
-                    <div class="font-bold text-gray-800 text-sm truncate">{{ cat.name }}</div>
+              
+              <!-- 搜索框 -->
+              <div class="relative mt-2">
+                <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input 
+                  v-model="catSearchQuery"
+                  placeholder="搜索猫咪名称、校区、花色..."
+                  class="pl-10"
+                />
+              </div>
+
+              <!-- 加载中 -->
+              <div v-if="catLoading" class="py-8 text-center text-gray-400">
+                加载中...
+              </div>
+              
+              <!-- 猫咪列表 -->
+              <div v-else class="flex-1 min-h-0 overflow-y-auto mt-3" style="max-height: 400px;">
+                <div v-if="filteredCatList().length === 0" class="py-8 text-center text-gray-400">
+                  未找到匹配的猫咪
+                </div>
+                <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4 p-1">
+                  <div 
+                    v-for="cat in filteredCatList()" 
+                    :key="cat.id"
+                    @click="handleSelectCat(cat)"
+                    class="cursor-pointer bg-white border border-gray-100 rounded-xl overflow-hidden hover:ring-2 hover:ring-[#F3B72E] hover:shadow-md transition-all"
+                  >
+                    <div class="h-24 bg-gray-100">
+                      <img :src="cat.avatar" class="w-full h-full object-cover" />
+                    </div>
+                    <div class="p-3 text-center">
+                      <div class="font-bold text-gray-800 text-sm truncate">{{ cat.name }}</div>
+                      <div class="text-xs text-gray-400 mt-1 truncate">{{ cat.campus }}</div>
+                    </div>
                   </div>
                 </div>
               </div>

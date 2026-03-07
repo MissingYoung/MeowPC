@@ -6,17 +6,17 @@ import MomentCard from '@/components/MomentCard.vue';
 import { Button } from '@/components/ui/button';
 import { toast } from 'vue-sonner';
 import type { CatDetail } from '@/types';
-
-import { MapPin, Calendar, Tag } from 'lucide-vue-next'
 import warningIcon from '@/assets/icons/warning.svg'
+import { Fish, Camera } from 'lucide-vue-next'
 
 const route = useRoute();
-const momentList = ref<any[]>([]);
 const router = useRouter();
+const momentList = ref<any[]>([]);
 //数据
 const catDetail = ref<CatDetail | null>(null);
 const catId = route.params.id as string;
 const loading = ref(true);
+const feedLoading = ref(false);
 
 const loadingMoments = ref(false)
 
@@ -103,6 +103,49 @@ const fetchMoments = async () => {
         loadingMoments.value = false;
     }
 }
+// 检查登录状态并跳转领养页
+const handleAdopt = () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        toast.warning('请先登录')
+        router.push({ name: 'login' })
+        return
+    }
+    router.push({ name: 'adopt', query: { catId: catDetail.value?.id } })
+}
+
+// 投喂猫咪（带登录守卫）
+const handleFeed = async () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        toast.warning('请先登录')
+        router.push({ name: 'login' })
+        return
+    }
+    if (feedLoading.value) return
+    feedLoading.value = true
+    try {
+        const res = await catApi.feedCat(catId)
+        toast.success(`投喂成功！剩余猫粮: ${res?.userCurrency ?? '--'}`)
+    } catch (error: any) {
+        const msg = error?.response?.data?.msg || error?.message || '投喂失败'
+        toast.error(msg)
+    } finally {
+        feedLoading.value = false
+    }
+}
+
+// 跳转发布动态页（带登录守卫）
+const handlePostMoment = () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+        toast.warning('请先登录')
+        router.push({ name: 'login' })
+        return
+    }
+    router.push({ name: 'post-moment', query: { catId: catDetail.value?.id } })
+}
+
 onMounted(() => {
     fetchCatDetail();
     fetchMoments();
@@ -253,6 +296,27 @@ onMounted(() => {
 
 
             <aside class="flex flex-col gap-6">
+                <!-- 投喂与发动态区域 -->
+                <div class="w-full rounded-xl bg-gradient-to-br from-[#F3B72E] to-[#f5c957] p-5 shadow-md max-w-sm">
+                    <h3 class="text-xl font-bold text-white mb-1">喜欢{{ catDetail?.name || '这只猫咪' }}吗？</h3>
+                    <p class="text-white/80 text-sm mb-4">投喂可以增加亲密度，让小猫咪记住你</p>
+                    <div class="flex gap-3">
+                        <Button
+                            class="flex-1 h-12 bg-white hover:bg-gray-50 text-[#F3B72E] font-bold rounded-xl shadow"
+                            :disabled="feedLoading"
+                            @click="handleFeed">
+                            <Fish class="w-5 h-5 mr-2" />
+                            {{ feedLoading ? '投喂中...' : '投喂' }}
+                        </Button>
+                        <Button
+                            class="flex-1 h-12 bg-white/20 hover:bg-white/30 text-white font-bold rounded-xl border-2 border-white/50"
+                            @click="handlePostMoment">
+                            <Camera class="w-5 h-5 mr-2" />
+                            发动态
+                        </Button>
+                    </div>
+                </div>
+
                 <div class="w-full h-screen rounded-sm z-10 border border-b bg-white p-4  justify-between max-w-sm">
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 w-full ">
                         <h3 class="text-lg font-bold text-gray-900 mb-2">详细信息</h3>
@@ -262,13 +326,32 @@ onMounted(() => {
                                 <span class="font-sm text-gray-800">{{ catDetail.basicInfo.color }}</span>
                             </div>
                             <div class="py-4 flex justify-between">
+                                <span class="text-gray-600">性别:</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.gender === 'MALE' ? '公猫 ♂' : '母猫 ♀' }}</span>
+                            </div>
+                            <div class="py-4 flex justify-between">
+                                <span class="text-gray-600">校区:</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.campus }}</span>
+                            </div>
+                            <div class="py-4 flex justify-between">
                                 <span class="text-gray-600">绝育状态:</span>
-                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.neutered ? '已绝育' : '未绝育'
-                                }}</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.neutered?.isNeutered ? '已绝育' : '未绝育' }}</span>
+                            </div>
+                            <div v-if="catDetail.basicInfo.neutered?.date" class="py-4 flex justify-between">
+                                <span class="text-gray-600">绝育日期:</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.neutered.date }}</span>
                             </div>
                             <div class="py-4 flex justify-between">
                                 <span class="text-gray-600">健康状况:</span>
                                 <span class="font-sm text-gray-800">{{ catDetail.basicInfo.healthStatus }}</span>
+                            </div>
+                            <div class="py-4 flex justify-between">
+                                <span class="text-gray-600">常驻地:</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.basicInfo.hauntLocation || '未知' }}</span>
+                            </div>
+                            <div class="py-4 flex justify-between">
+                                <span class="text-gray-600">人气值:</span>
+                                <span class="font-sm text-gray-800">{{ catDetail.popularity ?? 0 }}</span>
                             </div>
                         </div>
 
@@ -276,7 +359,7 @@ onMounted(() => {
                     <div class="flex justify-end mt-4">
                         <Button
                             class="flex-1 h-12 text-lg font-bold bg-[#F3B72E] hover:bg-[#e0a82e] text-black shadow-md rounded-xl"
-                            @click="$router.push({ name: 'adopt', query: { catId: catDetail?.id } })">
+                            @click="handleAdopt">
                             <span class="mr-2"></span> 申请领养此猫
                         </Button>
 
