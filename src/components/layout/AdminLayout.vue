@@ -94,9 +94,9 @@ onMounted(async () => {
         }
       })
     )
-    allUsers.value = enrichedUsers.map((res, i) =>
-      res.status === 'fulfilled' ? res.value : userItems[i]
-    )
+    allUsers.value = enrichedUsers
+      .map((res, i) => res.status === 'fulfilled' ? res.value : userItems[i])
+      .filter(Boolean) as AdminUserItem[]
   } catch (e) {
     console.error('加载数据失败', e)
   }
@@ -132,10 +132,10 @@ const doSearch = (keyword: string) => {
       const sid = String(u.sid || u.studentId || '').toLowerCase()
       const email = String(u.email || '').toLowerCase()
       // 从邮箱中提取学号（格式: 学号@mail.sdu.edu.cn）
-      const sidFromEmail = email.includes('@') ? email.split('@')[0] : ''
+      const sidFromEmail: string = email && email.includes('@') ? (email.split('@')[0] || '') : ''
       
       // 学号匹配：支持直接匹配 sid字段、studentId字段、或从邮箱提取的学号
-      const sidMatch = (sid && sid.includes(q)) || sidFromEmail.includes(q)
+      const sidMatch = (sid && sid.includes(q)) || (sidFromEmail && sidFromEmail.includes(q))
       
       // 角色关键词映射（支持中英文搜索）
       const roleKeywords: Record<string, string[]> = {
@@ -294,7 +294,7 @@ const clearSearch = () => {
           AD
         </div>
         <div class="flex flex-col overflow-hidden space-y-0.5">
-          <span class="text-base font-black truncate">超级管理员</span>
+          <span class="text-base font-black truncate">管理员</span>
           <span class="text-xs text-gray-500 truncate font-medium">admin@sdumeow.com</span>
         </div>
       </div>
